@@ -15,7 +15,9 @@ import java.util.List;
 
 public class FileMetadata {
     public FileAttributes Attributes;
-    public boolean Directory;
+    public List<FileMetadata> Children;
+    public String ChildrenLocation;
+    public Boolean Directory;
     public List<String> FileEncoding = new ArrayList<String>();
     public String ImportLocation;
     public long Length;

@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -98,16 +99,29 @@ public class ServiceBase {
         return Response.created(encodeLocation(md.Location.substring(1))).entity(md).build();
     }
 
+    /**
+     * Create Orion file meta-data from Che information.
+     */
     protected static FileMetadata createFileMD(ItemReference itemRef, String workspaceId) {
+        // NOTE: This function should generate largely the same result from Orion's ServletFileStoreHandler.toJSON()
         final String itemPath = itemRef.getPath();
         final String createdPath = "/" + workspaceId + itemPath;
         FileMetadata md = new FileMetadata();
-        md.Directory = "folder".equals(itemRef.getType());
         md.ImportLocation = "/xfer/import" + createdPath;
-        md.Length = 0;
-        md.LocalTimeStamp = itemRef.getModified();
         md.Location = "/file" + createdPath;
         md.Name = itemRef.getName();
+        if (isDirectoryItem(itemRef)) {
+            // Directory stuff
+            md.Directory = true;
+            md.Location += "/"; // Orion does that explicitly
+            md.ChildrenLocation = md.Location + "?depth=1";
+            md.Children = new ArrayList<FileMetadata>();
+        } else {
+            // File stuff
+            md.Length = 0;
+            md.LocalTimeStamp = itemRef.getModified();
+
+        }
         // TODO maybe this should be retrieved from Che?
         // Path to parent
         final int lastSlashIdx = itemPath.lastIndexOf('/');
@@ -120,6 +134,10 @@ public class ServiceBase {
             md.Parents.add(parentMeta);
         }
         return md;
+    }
+
+    public static boolean isDirectoryItem(ItemReference itemRef) {
+        return "folder".equals(itemRef.getType());
     }
 
     protected Response copyOrMoveItem(String fullParentPath, String fileName, String createOptions,

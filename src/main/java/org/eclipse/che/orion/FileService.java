@@ -13,6 +13,7 @@ package org.eclipse.che.orion;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
+import java.util.List;
 
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -42,19 +43,50 @@ public class FileService extends ServiceBase {
 
     @GET
     @Path(FILEPATH_PFX)
-    public Response getFile(@PathParam(FILEPATH_PARAM) String filePath, @QueryParam(HEADER_PARTS) String parts)
+    public Response getFile(@PathParam(FILEPATH_PARAM) String filePath,
+            @QueryParam(ProtocolConstants.PARM_DEPTH) int depth, @QueryParam(HEADER_PARTS) String parts)
             throws IOException {
         final PathInfo pathInfo = splitWorkspacePath(filePath);
-        // Content?
-        if ("body".equals(parts)) {
-            return null;
-        }
         // Get the metadata
         Response cheResp = getProjectTarget().path("item").path(pathInfo.path).request().get();
         assertValidResponse(cheResp);
         ItemReference itemRef = unmarshalResponse(cheResp, ItemReference.class);
-        FileMetadata fileMD = createFileMD(itemRef, Constants.CHE_WORKSPACE);
-        return Response.ok().entity(fileMD).build();
+        // If the body is requested, retrieve the file
+        if ((!isDirectoryItem(itemRef)) && (null == parts || "body".equals(parts))) {
+            // Retrieve the file
+            Response cheFileResp = getProjectTarget().path("file").path(pathInfo.path).request().get();
+            assertValidResponse(cheResp);
+            String fileContentType = cheFileResp.getHeaderString(HttpHeaders.CONTENT_TYPE);
+            Object fileConent = cheFileResp.getEntity();
+            return Response.ok().header(HttpHeaders.CONTENT_TYPE, fileContentType).entity(fileConent).build();
+        }
+        //
+        FileMetadata fileMeta = createFileMD(itemRef, Constants.CHE_WORKSPACE);
+        // Children?
+        if (fileMeta.Directory) {
+            fetchChildren(fileMeta, pathInfo.path, depth);
+        }
+        return Response.ok().entity(fileMeta).build();
+    }
+
+    private void fetchChildren(FileMetadata parent, String parentPath, int depth) throws IOException {
+        if (depth <= 0) {
+            return;
+        }
+        // The request to use is Che's /project/{ws}/children/{path}
+        Response cheResp = getProjectTarget().path("children").path(parentPath).request().get();
+        assertValidResponse(cheResp);
+        List<ItemReference> childRefs = unmarshalListResponse(cheResp, ItemReference.class);
+        // Convert each child to its Orion meta-data equivalent
+        for (ItemReference childRef : childRefs) {
+            // Create a meta-data for the child
+            FileMetadata childMeta = createFileMD(childRef, Constants.CHE_WORKSPACE);
+            parent.Children.add(childMeta);
+            // Recursively fetch children of child directories
+            if (childMeta.Directory) {
+                fetchChildren(childMeta, parentPath + '/' + childMeta.Name, depth - 1);
+            }
+        }
     }
 
     @POST

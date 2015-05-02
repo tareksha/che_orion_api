@@ -123,17 +123,27 @@ public class ServiceBase {
 
         }
         // TODO maybe this should be retrieved from Che?
-        // Path to parent
-        final int lastSlashIdx = itemPath.lastIndexOf('/');
-        if (lastSlashIdx > 0) {
-            final String parentPath = itemPath.substring(0, lastSlashIdx + 1);
-            FileParent parentMeta = new FileParent();
-            parentMeta.Location = "/file/" + workspaceId + parentPath;
-            parentMeta.ChildrenLocation = parentMeta.Location + "?depth=1";
-            parentMeta.Name = new File(parentPath).getName();
-            md.Parents.add(parentMeta);
-        }
+        nextDeeperParent(itemPath, 1, workspaceId, md.Parents);
         return md;
+    }
+
+    /**
+     * Recursively adds FS item parents in the order Orion expects.
+     */
+    private static void nextDeeperParent(String path, int offset, String workspaceId, List<FileParent> parents) {
+        int slashIdx = path.indexOf('/', offset);
+        if (slashIdx < 0) {
+            return;
+        }
+        nextDeeperParent(path, slashIdx + 1, workspaceId, parents);
+        String parentName = path.substring(offset, slashIdx);
+        String parentPath = path.substring(0, slashIdx + 1);
+        // Construct meta-data
+        FileParent parentMeta = new FileParent();
+        parentMeta.Location = "/file/" + workspaceId + parentPath;
+        parentMeta.ChildrenLocation = parentMeta.Location + "?depth=1";
+        parentMeta.Name = parentName;
+        parents.add(parentMeta);
     }
 
     public static boolean isDirectoryItem(ItemReference itemRef) {

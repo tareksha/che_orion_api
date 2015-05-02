@@ -17,7 +17,7 @@ public class FileMetadata {
     public FileAttributes Attributes;
     public List<FileMetadata> Children;
     public String ChildrenLocation;
-    public Boolean Directory;
+    public boolean Directory;
     public List<String> FileEncoding = new ArrayList<String>();
     public String ImportLocation;
     public long Length;

@@ -13,6 +13,8 @@ package org.eclipse.che.orion;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.List;
 
 import javax.ws.rs.DELETE;
@@ -100,11 +102,23 @@ public class FileService extends ServiceBase {
     @PUT
     @Path(FILEPATH_PFX)
     public Response updateFileContents(@PathParam(FILEPATH_PARAM) String filePathStr,
+            @QueryParam(ProtocolConstants.PARM_SOURCE) String source,
             @HeaderParam(HttpHeaders.CONTENT_TYPE) String contentType, InputStream contents) throws IOException,
             URISyntaxException {
         PathInfo filePath = splitWorkspacePath(filePathStr);
         Builder cheReqBuilder = getFileTarget(filePath.workspaceId, filePath.path).request();
-        Response cheResp = cheReqBuilder.put(Entity.entity(contents, contentType));
+        // Pick the content stream
+        InputStream contentStream;
+        String effContentType;
+        if (source != null) {
+            URLConnection urlConn = new URL(source).openConnection();
+            effContentType = urlConn.getContentType();
+            contentStream = urlConn.getInputStream();
+        } else {
+            effContentType = contentType;
+            contentStream = contents;
+        }
+        Response cheResp = cheReqBuilder.put(Entity.entity(contentStream, effContentType));
         assertValidResponse(cheResp);
         return Response.ok().build();
     }

@@ -11,7 +11,8 @@
 package org.eclipse.che.orion.dto;
 
 public class BasicChildDirectory extends ReferenceEntry {
-	public String ChildrenLocation;
+    @UriField
+    public String ChildrenLocation;
     public boolean Directory = true;
     public String SearchLocation = "/filesearch?q=";
 }

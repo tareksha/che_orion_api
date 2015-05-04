@@ -8,11 +8,15 @@
  * Contributors:
  *   Codenvy, S.A. - initial API and implementation
  *******************************************************************************/
-package org.eclipse.che.orion.dto;
+package org.eclipse.che.orion.dto.req;
 
-public class ChildDirectory extends BasicChildDirectory {
-    @UriField
-    public String ImportLocation;
-    public long LocalTimeStamp;
-
+public class ProjectOptions {
+    // Location of project content (not supported!)
+    public String ContentLocation;
+    // A unique-ID (unsupported if different from Name!)
+    public String Id;
+    // Location of content to copy from
+    public String Location;
+    // Name of project, overrides Slug value
+    public String Name;
 }

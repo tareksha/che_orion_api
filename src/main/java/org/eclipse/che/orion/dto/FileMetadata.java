@@ -16,15 +16,19 @@ import java.util.List;
 public class FileMetadata {
     public FileAttributes Attributes;
     public List<FileMetadata> Children;
+    @UriField
     public String ChildrenLocation;
     public boolean Directory;
     public List<String> FileEncoding = new ArrayList<String>();
+    @UriField
     public String ImportLocation;
     public long Length;
     public long LocalTimeStamp;
+    @UriField
     public String Location;
     public String Name;
     public List<FileParent> Parents = new ArrayList<FileMetadata.FileParent>();
+    @UriField
     public String SearchLocation;
 
     public static class FileParent {

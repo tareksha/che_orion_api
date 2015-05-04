@@ -20,12 +20,14 @@ import java.util.List;
  */
 public class WorkspaceMetadata extends BasicChildDirectory {
 
-	public static class ChildProjectMeta extends BasicChildDirectory {
-		public String ImportLocation;
-		public long LocalTimeStamp;
-	}
+    public List<ChildProjectMeta> Children = new ArrayList<ChildProjectMeta>();
+    @UriField
+    public String DriveLocation;
+    public List<ReferenceEntry> Projects = new ArrayList<ReferenceEntry>();
 
-	public List<ChildProjectMeta> Children = new ArrayList<ChildProjectMeta>();
-	public String DriveLocation;
-	public List<ReferenceEntry> Projects = new ArrayList<ReferenceEntry>();
+    public static class ChildProjectMeta extends BasicChildDirectory {
+        @UriField
+        public String ImportLocation;
+        public long LocalTimeStamp;
+    }
 }

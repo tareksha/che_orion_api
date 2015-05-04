@@ -8,11 +8,24 @@
  * Contributors:
  *   Codenvy, S.A. - initial API and implementation
  *******************************************************************************/
-package org.eclipse.che.orion.dto;
+package org.eclipse.che.orion;
 
-public class ChildDirectory extends BasicChildDirectory {
-    @UriField
-    public String ImportLocation;
-    public long LocalTimeStamp;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.ws.rs.core.Application;
+
+public class OrioApiApplication extends Application {
+
+    @Override
+    public Set<Class<?>> getClasses() {
+        Set<Class<?>> s = new HashSet<Class<?>>();
+        // Classes
+        s.add(FileService.class);
+        s.add(WorkspaceService.class);
+        // Filters
+        s.add(UriFieldEncodingFilter.class);
+        return s;
+    }
 
 }

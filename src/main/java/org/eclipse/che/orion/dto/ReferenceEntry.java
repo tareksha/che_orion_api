@@ -10,8 +10,13 @@
  *******************************************************************************/
 package org.eclipse.che.orion.dto;
 
+
 public class ReferenceEntry {
-	public String Id;
-	public String Location;
+    public String Id;
+    @UriField
+    public String Location;
     public String Name;
+
+    public void encodeURIs() {
+    }
 }

@@ -8,9 +8,16 @@
  * Contributors:
  *   Codenvy, S.A. - initial API and implementation
  *******************************************************************************/
-package org.eclipse.che.orion.dto.req;
+package org.eclipse.che.orion.dto;
 
-public class ProjectProperties {
-    // Location of content to copy from
-    public String Location;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
+/**
+ * String fields that are annotated with UriField in this application's responses are scanned and encoded for URI usage.
+ * 
+ * @author Tareq Sharafy (tareq.sha@gmail.com)
+ */
+@Retention(RetentionPolicy.RUNTIME)
+public @interface UriField {
 }

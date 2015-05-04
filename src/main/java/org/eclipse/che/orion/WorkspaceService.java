@@ -16,12 +16,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -42,7 +42,7 @@ import org.eclipse.che.orion.dto.ProjectMetadata;
 import org.eclipse.che.orion.dto.ReferenceEntry;
 import org.eclipse.che.orion.dto.WorkspaceMetadata;
 import org.eclipse.che.orion.dto.WorkspaceMetadata.ChildProjectMeta;
-import org.eclipse.che.orion.dto.req.ProjectProperties;
+import org.eclipse.che.orion.dto.req.ProjectOptions;
 import org.eclipse.orion.server.core.ProtocolConstants;
 
 /**
@@ -59,23 +59,12 @@ public class WorkspaceService extends ServiceBase {
     private static final String WORKSPACE_ID_PFX = "/{" + WORKSPCE_ID_PARAM + "}";
     // Project prefixes
     private static final String PROJECT_PFX = WORKSPACE_ID_PFX + "/project";
-    private static final String PROJECT_ID_PARAM = "projid";
-    private static final String PROJECT_ID_PFX = PROJECT_PFX + "/{" + PROJECT_ID_PARAM + "}";
     // Folder prefixes
     private static final String FOLDER_PATH_PARAM = "fpath";
-    private static final String FOLDER_PATH_PFX = PROJECT_PFX + "/file/{" + FOLDER_PATH_PARAM + ":.*}";
+    private static final String FOLDER_PATH_PFX = PROJECT_PFX + "/{" + FOLDER_PATH_PARAM + ":.*}";
 
     // /////////////////////////////////////////////////////////////////////////////////////////////
     // Workspace operations
-
-    /*
-     * Get a list of the available workspaces
-     */
-    @GET
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response listWorkspaces() {
-        return Response.ok().build();
-    }
 
     /*
      * Create a new workspace
@@ -112,24 +101,6 @@ public class WorkspaceService extends ServiceBase {
         return createWorkspaceMD(wsd, projds);
     }
 
-    /*
-     * Change workspace metadata
-     */
-    @PUT
-    @Path(WORKSPACE_ID_PFX)
-    public Response changeWorkspaceMetadata(@PathParam(WORKSPCE_ID_PARAM) String workspace) {
-        return Response.ok().build();
-    }
-
-    /*
-     * Remove a workspace
-     */
-    @DELETE
-    @Path(WORKSPACE_ID_PFX)
-    public Response removeWorkspace(@PathParam(WORKSPCE_ID_PARAM) String workspaceId) {
-        return Response.ok().build();
-    }
-
     private WorkspaceMetadata createWorkspaceMD(WorkspaceDescriptor wsd, List<ProjectDescriptor> projds) {
         WorkspaceMetadata md = new WorkspaceMetadata();
         md.Id = wsd.getId();
@@ -154,9 +125,9 @@ public class WorkspaceService extends ServiceBase {
     // Project operations
 
     @GET
-    @Path(PROJECT_ID_PFX)
+    @Path(FOLDER_PATH_PFX)
     public ProjectMetadata getProject(@PathParam(WORKSPCE_ID_PARAM) String workspaceId,
-            @PathParam(PROJECT_ID_PARAM) String projectId) throws IOException {
+            @PathParam(FOLDER_PATH_PARAM) String projectId) throws IOException {
         Response resp = getProjectTarget(workspaceId, projectId).request().get();
         ProjectDescriptor projd = unmarshalResponse(resp, ProjectDescriptor.class);
         return createProjectMD(projd);
@@ -165,8 +136,7 @@ public class WorkspaceService extends ServiceBase {
     private ProjectMetadata createProjectMD(ProjectDescriptor projd) {
         ProjectMetadata md = new ProjectMetadata();
         fillProjectBasic(projd, md);
-        md.ContentLocation = getServiceUriBuilder().path("workspace").path(projd.getWorkspaceId()).path("project")
-                .path("file").path(projd.getWorkspaceId()).path(projd.getName()).path("").build().toString();
+        md.ContentLocation = "/file/" + projd.getWorkspaceId() + projd.getPath();
         // TODO SearchLocation
         return md;
     }
@@ -177,9 +147,8 @@ public class WorkspaceService extends ServiceBase {
     }
 
     private void fillProjectRef(ProjectDescriptor projd, ReferenceEntry md) {
-        md.Id = projd.getPath().substring(1);
-        md.Location = getServiceUriBuilder().path("workspace").path(projd.getWorkspaceId()).path("project").path(md.Id)
-                .build().toString();
+        md.Id = projd.getName();
+        md.Location = "/workspace/" + projd.getWorkspaceId() + "/project" + projd.getPath();
     }
 
     /*
@@ -190,23 +159,35 @@ public class WorkspaceService extends ServiceBase {
     @Path(WORKSPACE_ID_PFX)
     public Response createProject(@PathParam(WORKSPCE_ID_PARAM) String workspaceId,
             @HeaderParam(ProtocolConstants.HEADER_SLUG) String projectName,
-            @HeaderParam(ProtocolConstants.HEADER_CREATE_OPTIONS) String createOptions, String optionsStr)
+            @HeaderParam(ProtocolConstants.HEADER_CREATE_OPTIONS) String createOptions, String projOptionsStr)
             throws IOException, URISyntaxException, JAXBException {
         // Parse input
+        ProjectOptions projOptions = parseJson(projOptionsStr, ProjectOptions.class);
+        // Compute actual name
+        String actualName = projOptions != null && projOptions.Name != null ? projOptions.Name : projectName;
+        // TODO Che fails with 500 if the project name is invalid, it should be 400
+        if (actualName == null || (actualName = actualName.trim()).isEmpty() || "/".equals(actualName)) {
+            throw new BadRequestException("Invalid project name '" + actualName + "'");
+        }
+        // ContentLocation is not supported
+        if (projOptions != null && projOptions.ContentLocation != null) {
+            throw new BadRequestException("Project ContentLocation is not supported");
+        }
+        // TODO these can be implemented by issuing several REST calls to Che, not that efficient!
         Set<String> options = parseCommaSeparatedList(createOptions);
-        ProjectProperties properties = parseJson(optionsStr, ProjectProperties.class);
-        // Is it a move/copy?
-        String specialCreate = null;
-        if (options.contains(ProtocolConstants.OPTION_COPY)) {
-            specialCreate = "copy";
-        } else if (options.contains(ProtocolConstants.OPTION_MOVE)) {
-            specialCreate = "move";
+        if (options.contains(ProtocolConstants.OPTION_COPY) || options.contains(ProtocolConstants.OPTION_MOVE)) {
+            throw new BadRequestException("copy/move in project creation are not supported");
+        }
+        // Validate the ID!
+        if (projOptions != null && projOptions.Id != null && !projOptions.Id.equals(actualName)) {
+            throw new BadRequestException("Project Id '" + projOptions.Id + "' is different from its Name '"
+                    + actualName + "'");
         }
         // Create a default project with type "blank"
         NewProject newProj = DtoFactory.getInstance().createDto(NewProject.class);
-        newProj.setName(projectName);
+        newProj.setName(actualName);
         newProj.setType(BaseProjectType.ID);
-        Response cheResp = getProjectTarget(workspaceId).queryParam("name", projectName).request()
+        Response cheResp = getProjectTarget(workspaceId).queryParam("name", actualName).request()
                 .post(createEntityFromDto(newProj));
         // Handler request errors
         assertValidResponse(cheResp);
@@ -220,11 +201,12 @@ public class WorkspaceService extends ServiceBase {
      * Remove a project.
      */
     @DELETE
-    @Path(PROJECT_ID_PFX)
-    public void removeProject(@PathParam(WORKSPCE_ID_PARAM) String workspaceId,
-            @PathParam(PROJECT_ID_PARAM) String projectId) {
-        Response resp = getProjectTarget(workspaceId).path(projectId).request().delete();
+    @Path(FOLDER_PATH_PFX)
+    public Response removeProject(@PathParam(WORKSPCE_ID_PARAM) String workspaceId,
+            @PathParam(FOLDER_PATH_PARAM) String projectPath) {
+        Response resp = getProjectTarget(workspaceId).path(projectPath).request().delete();
         assertValidResponse(resp);
+        return Response.ok().build();
     }
 
     // /////////////////////////////////////////////////////////////////////////////////////////////
@@ -236,6 +218,6 @@ public class WorkspaceService extends ServiceBase {
             @PathParam(FOLDER_PATH_PARAM) String parentPath,
             @HeaderParam(ProtocolConstants.HEADER_SLUG) String fileName, String optionsStr) throws IOException,
             URISyntaxException {
-        return commonCreateFileOrFolder(parentPath, fileName, null, optionsStr);
+        return commonCreateFileOrFolder(workspaceId + '/' + parentPath, fileName, null, optionsStr);
     }
 }

@@ -26,7 +26,8 @@ public class OrionApi {
         context.setContextPath("/");
 
         ServletHolder jerseyServlet = context.addServlet(org.glassfish.jersey.servlet.ServletContainer.class, "/*");
-        jerseyServlet.setInitParameter("jersey.config.server.provider.packages", "org.eclipse.che.orion");
+        jerseyServlet.setInitParameter("javax.ws.rs.Application", OrioApiApplication.class.getCanonicalName());
+
         context.addFilter(LocationHeaderFilter.class, "/*", EnumSet.allOf(DispatcherType.class));
 
         Server jettyServer = new Server(8180);

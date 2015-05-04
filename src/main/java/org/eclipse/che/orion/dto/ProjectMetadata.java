@@ -11,7 +11,8 @@
 package org.eclipse.che.orion.dto;
 
 public class ProjectMetadata extends ReferenceEntry {
-	public String ContentLocation;
+    @UriField
+    public String ContentLocation;
     public boolean Directory = true;
     public String SearchLocation = "/filesearch?q=";
 }
